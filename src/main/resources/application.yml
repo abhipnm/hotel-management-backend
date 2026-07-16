@@ -1,0 +1,108 @@
+spring:
+  application:
+    name: restaurant-manager
+  profiles:
+    default: dev
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    # Kept on (Spring Boot's default) so lazy associations (e.g. order.items,
+    # session.restaurant) can still be read while building response DTOs in
+    # controllers. Repository methods use @EntityGraph to eager-fetch the hot
+    # paths and avoid N+1 queries; OSIV is the safety net for the rest.
+    open-in-view: true
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      # An omitted JSON primitive (e.g. an optional boolean flag) should default
+      # to its Java default rather than 500 — matches typical REST leniency.
+      fail-on-null-for-primitives: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+app:
+  jwt:
+    # Override via env var in every real deployment. Must be >= 32 bytes for HS256.
+    secret: ${JWT_SECRET:dev-only-secret-change-this-to-a-long-random-value-before-deploying}
+    staff-ttl-minutes: ${JWT_STAFF_TTL_MINUTES:480}
+    guest-ttl-minutes: ${JWT_GUEST_TTL_MINUTES:240}
+  frontend:
+    # Base URL of the guest-facing ordering web app; QR codes deep-link here with ?qr=<token>
+    order-base-url: ${ORDER_BASE_URL:https://order.example.com}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5432/restaurant_manager
+    username: postgres
+    password: postgres
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.restaurantmanager: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.restaurantmanager: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  flyway:
+    enabled: false
+
+app:
+  jwt:
+    secret: test-secret-key-not-for-production-use-only-in-automated-tests

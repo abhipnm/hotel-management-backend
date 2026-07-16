@@ -1,0 +1,603 @@
+{
+  "info": {
+    "name": "Restaurant Manager",
+    "description": "QR-based restaurant ordering platform API. Run requests top-to-bottom within a folder — tokens and IDs are captured automatically into collection variables via each request's Tests script.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "b6e2a2b0-2c1a-4e6a-9b7a-restaurantmanager"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminToken", "value": "" },
+    { "key": "guestToken", "value": "" },
+    { "key": "restaurantId", "value": "" },
+    { "key": "restaurantSlug", "value": "test-diner" },
+    { "key": "tableId", "value": "" },
+    { "key": "qrToken", "value": "" },
+    { "key": "categoryId", "value": "" },
+    { "key": "itemId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "guestSessionId", "value": "" },
+    { "key": "staffEmail", "value": "" },
+    { "key": "staffUserId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/actuator/health", "host": ["{{baseUrl}}"], "path": ["actuator", "health"] }
+          }
+        },
+        {
+          "name": "Register restaurant + admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('adminToken', body.token);",
+                  "pm.collectionVariables.set('restaurantId', body.user.restaurantId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register-restaurant", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "register-restaurant"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantName\": \"Test Diner\",\n  \"slug\": \"{{restaurantSlug}}\",\n  \"adminName\": \"Rajat Admin\",\n  \"adminEmail\": \"rajat1pnm@gmail.com\",\n  \"password\": \"TestPass123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Resolve QR token",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/qr/{{qrToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "qr", "{{qrToken}}"]
+            }
+          }
+        },
+        {
+          "name": "Create guest session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('guestToken', body.guestToken);",
+                  "pm.collectionVariables.set('guestSessionId', body.sessionId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/public/guest-sessions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "public", "guest-sessions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrToken\": \"{{qrToken}}\",\n  \"guestName\": \"Priya\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get public menu",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/restaurants/{{restaurantId}}/menu",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "restaurants", "{{restaurantId}}", "menu"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (admin/staff)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('adminToken', body.token);",
+                  "pm.collectionVariables.set('restaurantId', body.user.restaurantId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"rajat1pnm@gmail.com\",\n  \"password\": \"TestPass123!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Guest",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{guestToken}}" }]
+      },
+      "item": [
+        {
+          "name": "Get my session",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/guest/session", "host": ["{{baseUrl}}"], "path": ["api", "v1", "guest", "session"] }
+          }
+        },
+        {
+          "name": "Call waiter",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/guest/call-waiter", "host": ["{{baseUrl}}"], "path": ["api", "v1", "guest", "call-waiter"] }
+          }
+        },
+        {
+          "name": "Request the bill",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/v1/guest/session/request-bill", "host": ["{{baseUrl}}"], "path": ["api", "v1", "guest", "session", "request-bill"] }
+          }
+        },
+        {
+          "name": "Place order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set('orderId', body.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/guest/orders", "host": ["{{baseUrl}}"], "path": ["api", "v1", "guest", "orders"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"menuItemId\": \"{{itemId}}\", \"quantity\": 1, \"notes\": \"no onions\" }\n  ],\n  \"notes\": \"Table by the window\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List my orders",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/guest/orders", "host": ["{{baseUrl}}"], "path": ["api", "v1", "guest", "orders"] }
+          }
+        },
+        {
+          "name": "Get my order by id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/guest/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "guest", "orders", "{{orderId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Staff",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}" }]
+      },
+      "item": [
+        {
+          "name": "List active orders",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/staff/orders", "host": ["{{baseUrl}}"], "path": ["api", "v1", "staff", "orders"] }
+          }
+        },
+        {
+          "name": "List orders by status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/staff/orders?status=PLACED&status=ACCEPTED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "staff", "orders"],
+              "query": [
+                { "key": "status", "value": "PLACED" },
+                { "key": "status", "value": "ACCEPTED" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get order by id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/staff/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "staff", "orders", "{{orderId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update order status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/staff/orders/{{orderId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "staff", "orders", "{{orderId}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACCEPTED\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List active guest sessions",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/staff/sessions", "host": ["{{baseUrl}}"], "path": ["api", "v1", "staff", "sessions"] }
+          }
+        },
+        {
+          "name": "Mark session paid",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/staff/sessions/{{guestSessionId}}/mark-paid",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "staff", "sessions", "{{guestSessionId}}", "mark-paid"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Restaurant & Staff",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}" }]
+      },
+      "item": [
+        {
+          "name": "Get restaurant",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurant", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "restaurant"] }
+          }
+        },
+        {
+          "name": "Update restaurant",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/restaurant", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "restaurant"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Diner\",\n  \"address\": \"123 Main St\",\n  \"phone\": \"555-1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List staff accounts",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/staff", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "staff"] }
+          }
+        },
+        {
+          "name": "Create staff account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.id) { pm.collectionVariables.set('staffUserId', body.id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/staff", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "staff"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kitchen Staff\",\n  \"email\": \"staff@test-diner.com\",\n  \"password\": \"StaffPass123!\",\n  \"role\": \"STAFF\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Tables",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}" }]
+      },
+      "item": [
+        {
+          "name": "List tables",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/tables", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "tables"] }
+          }
+        },
+        {
+          "name": "Create table",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('tableId', body.id);",
+                  "pm.collectionVariables.set('qrToken', body.qrToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/tables", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "tables"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tableNumber\": \"12\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update table",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tables/{{tableId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tables", "{{tableId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tableNumber\": \"12\",\n  \"active\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete table",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tables/{{tableId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tables", "{{tableId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get table QR code (PNG)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/tables/{{tableId}}/qrcode",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tables", "{{tableId}}", "qrcode"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Menu",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}" }]
+      },
+      "item": [
+        {
+          "name": "Get full menu",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/menu", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "menu"] }
+          }
+        },
+        {
+          "name": "List categories",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/menu-categories", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "menu-categories"] }
+          }
+        },
+        {
+          "name": "Create category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('categoryId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/menu-categories", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "menu-categories"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mains\",\n  \"displayOrder\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "Update category",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/menu-categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "menu-categories", "{{categoryId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mains\",\n  \"displayOrder\": 0,\n  \"active\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete category",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/menu-categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "menu-categories", "{{categoryId}}"]
+            }
+          }
+        },
+        {
+          "name": "List menu items",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/menu-items", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "menu-items"] }
+          }
+        },
+        {
+          "name": "Create menu item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('itemId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/menu-items", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "menu-items"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"name\": \"Cheeseburger\",\n  \"description\": \"Beef patty, cheddar, lettuce, tomato\",\n  \"price\": 9.50,\n  \"imageUrl\": \"https://picsum.photos/seed/cheeseburger/200/150\",\n  \"vegetarian\": false,\n  \"displayOrder\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "Update menu item",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/menu-items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "menu-items", "{{itemId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": \"{{categoryId}}\",\n  \"name\": \"Cheeseburger\",\n  \"description\": \"Beef patty, cheddar, lettuce, tomato\",\n  \"price\": 9.50,\n  \"imageUrl\": \"https://picsum.photos/seed/cheeseburger/200/150\",\n  \"vegetarian\": false,\n  \"available\": true,\n  \"displayOrder\": 0\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete menu item",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/menu-items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "menu-items", "{{itemId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Orders & Analytics",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminToken}}" }]
+      },
+      "item": [
+        {
+          "name": "List all orders (history)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/orders", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "orders"] }
+          }
+        },
+        {
+          "name": "List orders by status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders?status=CANCELLED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders"],
+              "query": [{ "key": "status", "value": "CANCELLED" }]
+            }
+          }
+        },
+        {
+          "name": "Get order by id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "orders", "{{orderId}}"]
+            }
+          }
+        },
+        {
+          "name": "Today's sales summary",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/analytics/summary", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "analytics", "summary"] }
+          }
+        }
+      ]
+    }
+  ]
+}
