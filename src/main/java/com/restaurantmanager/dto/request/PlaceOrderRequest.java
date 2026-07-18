@@ -13,6 +13,10 @@ public record PlaceOrderRequest(
         List<OrderItemRequest> items,
 
         @Size(max = 500)
-        String notes
+        String notes,
+
+        /** Optional coupon code to apply at placement time. */
+        @Size(max = 30)
+        String couponCode
 ) {
 }

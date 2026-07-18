@@ -32,7 +32,7 @@ public class StaffSessionController {
     @GetMapping
     public ResponseEntity<List<StaffGuestSessionResponse>> listActiveSessions(@AuthenticationPrincipal AuthPrincipal principal) {
         List<StaffGuestSessionResponse> sessions = guestSessionService.listActiveSessions(principal.restaurantId()).stream()
-                .map(StaffGuestSessionResponse::from)
+                .map(session -> StaffGuestSessionResponse.from(session, guestSessionService.getVisitCount(session)))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(sessions);
     }
@@ -51,7 +51,7 @@ public class StaffSessionController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable UUID sessionId) {
         var session = guestSessionService.markPaid(sessionId, principal.restaurantId());
-        return ResponseEntity.ok(StaffGuestSessionResponse.from(session));
+        return ResponseEntity.ok(StaffGuestSessionResponse.from(session, guestSessionService.getVisitCount(session)));
     }
 
     @PatchMapping("/{sessionId}/close")

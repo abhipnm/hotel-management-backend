@@ -44,4 +44,9 @@ public class RestaurantTable extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    /** The waiter responsible for this table; null when unassigned. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_waiter_id")
+    private AppUser assignedWaiter;
 }

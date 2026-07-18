@@ -10,7 +10,9 @@ public record TableResponse(
         String qrToken,
         String qrCodeImageUrl,
         boolean active,
-        boolean occupied
+        boolean occupied,
+        UUID assignedWaiterId,
+        String assignedWaiterName
 ) {
     /** A table on its own, outside a session-aware listing (e.g. right after create/update) — never occupied by definition. */
     public static TableResponse from(RestaurantTable table) {
@@ -24,7 +26,9 @@ public record TableResponse(
                 table.getQrToken(),
                 "/api/v1/admin/tables/" + table.getId() + "/qrcode",
                 table.isActive(),
-                occupied
+                occupied,
+                table.getAssignedWaiter() != null ? table.getAssignedWaiter().getId() : null,
+                table.getAssignedWaiter() != null ? table.getAssignedWaiter().getName() : null
         );
     }
 }

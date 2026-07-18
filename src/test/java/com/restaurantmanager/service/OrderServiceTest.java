@@ -101,7 +101,8 @@ class OrderServiceTest {
 
         PlaceOrderRequest request = new PlaceOrderRequest(
                 List.of(new OrderItemRequest(burger.getId(), 2, "no onions")),
-                "Table by the window"
+                "Table by the window",
+                null
         );
 
         Order order = orderService.placeOrder(session, request);
@@ -120,6 +121,7 @@ class OrderServiceTest {
 
         PlaceOrderRequest request = new PlaceOrderRequest(
                 List.of(new OrderItemRequest(fries.getId(), 1, null)),
+                null,
                 null
         );
 

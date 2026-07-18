@@ -16,4 +16,6 @@ public interface GuestSessionRepository extends JpaRepository<GuestSession, UUID
 
     @EntityGraph(attributePaths = {"restaurant", "table"})
     List<GuestSession> findByRestaurantIdAndStatusOrderByCreatedAtAsc(UUID restaurantId, GuestSessionStatus status);
+
+    long countByRestaurantIdAndGuestPhone(UUID restaurantId, String guestPhone);
 }

@@ -11,15 +11,18 @@ public record StaffGuestSessionResponse(
         String tableNumber,
         String guestName,
         boolean billRequested,
-        Instant createdAt
+        Instant createdAt,
+        /** Null when the guest didn't give a phone number. */
+        Integer visitCount
 ) {
-    public static StaffGuestSessionResponse from(GuestSession session) {
+    public static StaffGuestSessionResponse from(GuestSession session, Integer visitCount) {
         return new StaffGuestSessionResponse(
                 session.getId(),
                 session.getTable().getTableNumber(),
                 session.getGuestName(),
                 session.isBillRequested(),
-                session.getCreatedAt()
+                session.getCreatedAt(),
+                visitCount
         );
     }
 }

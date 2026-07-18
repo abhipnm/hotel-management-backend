@@ -40,6 +40,7 @@ public class GuestSessionService {
                 .restaurant(table.getRestaurant())
                 .table(table)
                 .guestName(request.guestName())
+                .guestPhone(request.guestPhone())
                 .status(GuestSessionStatus.ACTIVE)
                 .expiresAt(Instant.now().plus(Duration.ofMinutes(guestTtlMinutes)))
                 .build();
@@ -54,8 +55,18 @@ public class GuestSessionService {
                 issued.expiresAt(),
                 session.getGuestName(),
                 table.getRestaurant().getName(),
-                table.getTableNumber()
+                table.getTableNumber(),
+                getVisitCount(session)
         );
+    }
+
+    /** Null when the guest didn't give a phone number; otherwise total visits by that phone at this restaurant, including this one. */
+    @Transactional(readOnly = true)
+    public Integer getVisitCount(GuestSession session) {
+        if (session.getGuestPhone() == null || session.getGuestPhone().isBlank()) {
+            return null;
+        }
+        return (int) guestSessionRepository.countByRestaurantIdAndGuestPhone(session.getRestaurant().getId(), session.getGuestPhone());
     }
 
     @Transactional(readOnly = true)

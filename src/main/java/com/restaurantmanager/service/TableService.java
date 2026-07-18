@@ -2,10 +2,12 @@ package com.restaurantmanager.service;
 
 import com.restaurantmanager.dto.request.CreateTableRequest;
 import com.restaurantmanager.dto.request.UpdateTableRequest;
+import com.restaurantmanager.entity.AppUser;
 import com.restaurantmanager.entity.Restaurant;
 import com.restaurantmanager.entity.RestaurantTable;
 import com.restaurantmanager.exception.ConflictException;
 import com.restaurantmanager.exception.ResourceNotFoundException;
+import com.restaurantmanager.repository.AppUserRepository;
 import com.restaurantmanager.repository.RestaurantTableRepository;
 import com.restaurantmanager.util.QrCodeGenerator;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +23,9 @@ import java.util.UUID;
 public class TableService {
 
     private final RestaurantTableRepository tableRepository;
+    private final AppUserRepository appUserRepository;
     private final QrCodeGenerator qrCodeGenerator;
+    private final ActivityLogService activityLogService;
 
     @Value("${app.frontend.order-base-url:https://order.example.com}")
     private String orderBaseUrl;
@@ -56,6 +60,24 @@ public class TableService {
         RestaurantTable table = getForRestaurant(tableId, restaurantId);
         table.setTableNumber(request.tableNumber());
         table.setActive(request.active());
+        return table;
+    }
+
+    /** Pass a null waiterId to unassign the table. */
+    @Transactional
+    public RestaurantTable assignWaiter(UUID tableId, UUID restaurantId, UUID waiterId, UUID actorId) {
+        RestaurantTable table = getForRestaurant(tableId, restaurantId);
+        if (waiterId == null) {
+            table.setAssignedWaiter(null);
+            activityLogService.log(restaurantId, actorId, "WAITER_UNASSIGNED",
+                    "Unassigned waiter from Table " + table.getTableNumber());
+            return table;
+        }
+        AppUser waiter = appUserRepository.findByIdAndRestaurantId(waiterId, restaurantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff member not found: " + waiterId));
+        table.setAssignedWaiter(waiter);
+        activityLogService.log(restaurantId, actorId, "WAITER_ASSIGNED",
+                "Assigned " + waiter.getName() + " to Table " + table.getTableNumber());
         return table;
     }
 

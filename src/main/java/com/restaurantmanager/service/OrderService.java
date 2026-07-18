@@ -2,6 +2,7 @@ package com.restaurantmanager.service;
 
 import com.restaurantmanager.dto.request.OrderItemRequest;
 import com.restaurantmanager.dto.request.PlaceOrderRequest;
+import com.restaurantmanager.entity.Coupon;
 import com.restaurantmanager.entity.GuestSession;
 import com.restaurantmanager.entity.MenuItem;
 import com.restaurantmanager.entity.Order;
@@ -32,6 +33,8 @@ public class OrderService {
     private final OrderBroadcastService broadcastService;
     private final AppUserRepository appUserRepository;
     private final NotificationService notificationService;
+    private final CouponService couponService;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public Order placeOrder(GuestSession session, PlaceOrderRequest request) {
@@ -44,7 +47,7 @@ public class OrderService {
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
-        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal subtotal = BigDecimal.ZERO;
         for (OrderItemRequest itemRequest : request.items()) {
             MenuItem menuItem = menuItemRepository.findByIdAndRestaurantId(itemRequest.menuItemId(), session.getRestaurant().getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Menu item not found: " + itemRequest.menuItemId()));
@@ -53,22 +56,31 @@ public class OrderService {
                 throw new BadRequestException("'" + menuItem.getName() + "' is currently unavailable");
             }
 
-            BigDecimal subtotal = menuItem.getPrice().multiply(BigDecimal.valueOf(itemRequest.quantity()));
+            BigDecimal lineTotal = menuItem.getPrice().multiply(BigDecimal.valueOf(itemRequest.quantity()));
             OrderItem orderItem = OrderItem.builder()
                     .menuItem(menuItem)
                     .itemNameSnapshot(menuItem.getName())
                     .itemPriceSnapshot(menuItem.getPrice())
                     .quantity(itemRequest.quantity())
-                    .subtotal(subtotal)
+                    .subtotal(lineTotal)
                     .notes(itemRequest.notes())
                     .build();
 
             order.addItem(orderItem);
-            total = total.add(subtotal);
+            subtotal = subtotal.add(lineTotal);
             decrementStock(menuItem, itemRequest.quantity());
         }
 
-        order.setTotalAmount(total);
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (request.couponCode() != null && !request.couponCode().isBlank()) {
+            Coupon coupon = couponService.findValid(session.getRestaurant().getId(), request.couponCode(), subtotal);
+            discountAmount = couponService.calculateDiscount(coupon, subtotal);
+            couponService.recordUsage(coupon);
+            order.setCouponCode(coupon.getCode());
+        }
+
+        order.setDiscountAmount(discountAmount);
+        order.setTotalAmount(subtotal.subtract(discountAmount));
         Order saved = orderRepository.save(order);
         broadcastService.broadcastCreated(saved);
         notificationService.notifyNewOrder(saved);
@@ -135,8 +147,24 @@ public class OrderService {
         } else if (targetStatus == OrderStatus.SERVED) {
             order.setServedAt(Instant.now());
             order.setServedBy(appUserRepository.getReferenceById(actingUserId));
+        } else if (targetStatus == OrderStatus.CANCELLED) {
+            restoreStock(order);
+            activityLogService.log(restaurantId, actingUserId, "ORDER_CANCELLED",
+                    "Cancelled order for Table " + order.getTable().getTableNumber() + " (" + order.getTotalAmount() + ")");
         }
         broadcastService.broadcastStatusChanged(order);
         return order;
+    }
+
+    /** Gives back whatever stock was decremented at placement time. Only affects items that track stock. */
+    private void restoreStock(Order order) {
+        for (OrderItem item : order.getItems()) {
+            MenuItem menuItem = item.getMenuItem();
+            Integer current = menuItem.getStockQuantity();
+            if (current == null) {
+                continue;
+            }
+            menuItem.setStockQuantity(current + item.getQuantity());
+        }
     }
 }

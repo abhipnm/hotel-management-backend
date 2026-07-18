@@ -31,6 +31,7 @@ public class AuthService {
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public AuthResponse registerRestaurant(RegisterRestaurantRequest request) {
@@ -63,12 +64,12 @@ public class AuthService {
     }
 
     @Transactional
-    public AppUser createStaff(Restaurant restaurant, CreateStaffRequest request) {
+    public AppUser createStaff(Restaurant restaurant, CreateStaffRequest request, UUID actorId) {
         if (appUserRepository.existsByEmailIgnoreCase(request.email())) {
             throw new ConflictException("A user with email '" + request.email() + "' already exists");
         }
 
-        return appUserRepository.save(AppUser.builder()
+        AppUser created = appUserRepository.save(AppUser.builder()
                 .restaurant(restaurant)
                 .name(request.name())
                 .email(request.email())
@@ -76,6 +77,9 @@ public class AuthService {
                 .role(request.role())
                 .active(true)
                 .build());
+        activityLogService.log(restaurant.getId(), actorId, "STAFF_CREATED",
+                "Created staff account for " + created.getName() + " (" + created.getRole() + ")");
+        return created;
     }
 
     @Transactional
@@ -88,9 +92,18 @@ public class AuthService {
             throw new BadRequestException("You cannot deactivate or demote your own account");
         }
 
+        boolean wasActive = user.isActive();
         user.setName(request.name());
         user.setRole(request.role());
         user.setActive(request.active());
+
+        if (wasActive && !request.active()) {
+            activityLogService.log(restaurantId, actingUserId, "STAFF_DEACTIVATED", "Deactivated staff account " + user.getName());
+        } else if (!wasActive && request.active()) {
+            activityLogService.log(restaurantId, actingUserId, "STAFF_REACTIVATED", "Reactivated staff account " + user.getName());
+        } else {
+            activityLogService.log(restaurantId, actingUserId, "STAFF_UPDATED", "Updated staff account " + user.getName());
+        }
         return user;
     }
 
