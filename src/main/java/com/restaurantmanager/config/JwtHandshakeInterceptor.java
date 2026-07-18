@@ -21,7 +21,7 @@ import java.util.Map;
  * as a query parameter (browsers cannot set custom headers during the
  * SockJS/STOMP handshake). Only valid STAFF/ADMIN tokens are allowed to
  * establish a connection; the resolved restaurantId is stashed in the
- * session attributes so handlers can scope subscriptions if needed.
+ * session attributes so handlers can scope subscriptions if needed...
  */
 @Slf4j
 @Component
