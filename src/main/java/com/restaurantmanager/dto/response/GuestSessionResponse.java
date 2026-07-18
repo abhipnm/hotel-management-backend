@@ -10,6 +10,8 @@ public record GuestSessionResponse(
         Instant expiresAt,
         String guestName,
         String restaurantName,
-        String tableNumber
+        String tableNumber,
+        /** Null when no phone was given; otherwise how many visits this phone has made, including this one. */
+        Integer visitCount
 ) {
 }

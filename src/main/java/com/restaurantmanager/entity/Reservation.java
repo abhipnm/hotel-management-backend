@@ -17,47 +17,42 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-/**
- * Represents one guest's visit at one table: created when they scan the QR
- * code and enter their name. The issued guest JWT is scoped to this session.
- */
 @Getter
 @Setter
 @Entity
-@Table(name = "guest_sessions")
+@Table(name = "reservations")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
-public class GuestSession extends BaseEntity {
+public class Reservation extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "restaurant_id", nullable = false)
     private Restaurant restaurant;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "table_id", nullable = false)
+    /** Assigning a table is optional at booking time; a walk-in slot can be confirmed before a table is picked. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "table_id")
     private RestaurantTable table;
 
-    @Column(name = "guest_name", nullable = false)
+    @Column(name = "guest_name", nullable = false, length = 100)
     private String guestName;
 
-    /** Optional; when provided, lets repeat visits be recognized by phone number. */
-    @Column(name = "guest_phone", length = 20)
+    @Column(name = "guest_phone", nullable = false, length = 20)
     private String guestPhone;
+
+    @Column(name = "party_size", nullable = false)
+    private int partySize;
+
+    @Column(name = "reservation_time", nullable = false)
+    private Instant reservationTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private GuestSessionStatus status = GuestSessionStatus.ACTIVE;
+    private ReservationStatus status = ReservationStatus.PENDING;
 
-    @Column(name = "expires_at", nullable = false)
-    private Instant expiresAt;
-
-    @Column(name = "bill_requested", nullable = false)
-    @Builder.Default
-    private boolean billRequested = false;
-
-    @Column(name = "paid_at")
-    private Instant paidAt;
+    @Column(length = 500)
+    private String notes;
 }

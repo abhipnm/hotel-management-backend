@@ -50,7 +50,7 @@ public class AdminStaffController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody CreateStaffRequest request) {
         Restaurant restaurant = restaurantService.getById(principal.restaurantId());
-        AppUser created = authService.createStaff(restaurant, request);
+        AppUser created = authService.createStaff(restaurant, request, principal.id());
         return ResponseEntity.status(HttpStatus.CREATED).body(toSummary(created));
     }
 

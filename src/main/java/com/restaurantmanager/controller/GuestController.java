@@ -2,13 +2,16 @@ package com.restaurantmanager.controller;
 
 import com.restaurantmanager.dto.request.CreateFeedbackRequest;
 import com.restaurantmanager.dto.request.PlaceOrderRequest;
+import com.restaurantmanager.dto.response.CouponValidationResponse;
 import com.restaurantmanager.dto.response.FeedbackResponse;
 import com.restaurantmanager.dto.response.GuestSessionSummaryResponse;
 import com.restaurantmanager.dto.response.OrderResponse;
+import com.restaurantmanager.entity.Coupon;
 import com.restaurantmanager.entity.Feedback;
 import com.restaurantmanager.entity.GuestSession;
 import com.restaurantmanager.entity.Order;
 import com.restaurantmanager.security.AuthPrincipal;
+import com.restaurantmanager.service.CouponService;
 import com.restaurantmanager.service.FeedbackService;
 import com.restaurantmanager.service.GuestSessionService;
 import com.restaurantmanager.service.OrderService;
@@ -24,8 +27,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -44,6 +49,7 @@ public class GuestController {
     private final GuestSessionService guestSessionService;
     private final StaffAlertService staffAlertService;
     private final FeedbackService feedbackService;
+    private final CouponService couponService;
 
     @GetMapping("/session")
     public ResponseEntity<GuestSessionSummaryResponse> getSession(@AuthenticationPrincipal AuthPrincipal principal) {
@@ -87,6 +93,18 @@ public class GuestController {
             @PathVariable UUID orderId) {
         Order order = orderService.getForGuestSession(orderId, principal.id());
         return ResponseEntity.ok(OrderResponse.from(order));
+    }
+
+    /** Preview-only: computes the discount without recording a use, so the cart can show a live total before the guest places the order. */
+    @GetMapping("/coupons/validate")
+    public ResponseEntity<CouponValidationResponse> validateCoupon(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestParam String code,
+            @RequestParam BigDecimal subtotal) {
+        Coupon coupon = couponService.findValid(principal.restaurantId(), code, subtotal);
+        BigDecimal discountAmount = couponService.calculateDiscount(coupon, subtotal);
+        return ResponseEntity.ok(new CouponValidationResponse(
+                coupon.getCode(), discountAmount, subtotal.subtract(discountAmount)));
     }
 
     @PostMapping("/feedback")

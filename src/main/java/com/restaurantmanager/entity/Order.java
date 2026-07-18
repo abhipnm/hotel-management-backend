@@ -53,6 +53,15 @@ public class Order extends BaseEntity {
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
+    /** Amount subtracted from the item subtotal by an applied coupon; zero when none was used. */
+    @Column(name = "discount_amount", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    /** The coupon code applied at placement, if any; null otherwise. */
+    @Column(name = "coupon_code", length = 30)
+    private String couponCode;
+
     @Column(length = 500)
     private String notes;
 

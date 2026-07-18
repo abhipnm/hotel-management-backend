@@ -44,7 +44,6 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
 
         if (tokenParams == null || tokenParams.isEmpty()) {
 
-
             log.debug("Rejected websocket handshake: missing token");
             return false;
         }

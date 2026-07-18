@@ -35,7 +35,11 @@ public class StaffTableController {
                 .collect(Collectors.toMap(s -> s.getTable().getId(), Function.identity(), (a, b) -> a));
 
         List<StaffTableResponse> tables = tableService.listForRestaurant(principal.restaurantId()).stream()
-                .map(table -> StaffTableResponse.from(table, sessionsByTableId.get(table.getId())))
+                .map(table -> {
+                    GuestSession activeSession = sessionsByTableId.get(table.getId());
+                    Integer visitCount = activeSession != null ? guestSessionService.getVisitCount(activeSession) : null;
+                    return StaffTableResponse.from(table, activeSession, visitCount);
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(tables);
     }

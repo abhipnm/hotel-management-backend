@@ -1,5 +1,6 @@
 package com.restaurantmanager.controller;
 
+import com.restaurantmanager.dto.request.AssignWaiterRequest;
 import com.restaurantmanager.dto.request.CreateTableRequest;
 import com.restaurantmanager.dto.request.UpdateTableRequest;
 import com.restaurantmanager.dto.response.TableResponse;
@@ -20,6 +21,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -70,6 +72,15 @@ public class AdminTableController {
             @PathVariable UUID tableId,
             @Valid @RequestBody UpdateTableRequest request) {
         RestaurantTable table = tableService.update(tableId, principal.restaurantId(), request);
+        return ResponseEntity.ok(TableResponse.from(table));
+    }
+
+    @PatchMapping("/{tableId}/waiter")
+    public ResponseEntity<TableResponse> assignWaiter(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID tableId,
+            @RequestBody AssignWaiterRequest request) {
+        RestaurantTable table = tableService.assignWaiter(tableId, principal.restaurantId(), request.waiterId(), principal.id());
         return ResponseEntity.ok(TableResponse.from(table));
     }
 
