@@ -31,9 +31,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderService {
 
-    /** Once a kitchen has moved an order past PREPARING, its contents are considered locked. */
-    private static final Set<OrderStatus> EDITABLE_STATUSES =
-            EnumSet.of(OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.PREPARING);
+    /** Once the kitchen has accepted an order, its contents are considered locked. */
+    private static final Set<OrderStatus> EDITABLE_STATUSES = EnumSet.of(OrderStatus.PLACED);
 
     private final OrderRepository orderRepository;
     private final MenuItemRepository menuItemRepository;
