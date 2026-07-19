@@ -14,4 +14,8 @@ public interface MenuCategoryRepository extends JpaRepository<MenuCategory, UUID
     List<MenuCategory> findByRestaurantIdAndActiveTrueOrderByDisplayOrderAsc(UUID restaurantId);
 
     Optional<MenuCategory> findByIdAndRestaurantId(UUID id, UUID restaurantId);
+
+    Optional<MenuCategory> findByRestaurantIdAndNameIgnoreCase(UUID restaurantId, String name);
+
+    int countByRestaurantId(UUID restaurantId);
 }

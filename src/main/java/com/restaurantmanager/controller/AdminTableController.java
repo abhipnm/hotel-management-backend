@@ -2,6 +2,7 @@ package com.restaurantmanager.controller;
 
 import com.restaurantmanager.dto.request.AssignWaiterRequest;
 import com.restaurantmanager.dto.request.CreateTableRequest;
+import com.restaurantmanager.dto.request.SetTableActiveRequest;
 import com.restaurantmanager.dto.request.UpdateTableRequest;
 import com.restaurantmanager.dto.response.TableResponse;
 import com.restaurantmanager.entity.GuestSession;
@@ -62,8 +63,17 @@ public class AdminTableController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @Valid @RequestBody CreateTableRequest request) {
         Restaurant restaurant = restaurantService.getById(principal.restaurantId());
-        RestaurantTable table = tableService.create(restaurant, request);
+        RestaurantTable table = tableService.create(restaurant, request, principal.id());
         return ResponseEntity.status(HttpStatus.CREATED).body(TableResponse.from(table));
+    }
+
+    @PatchMapping("/{tableId}/active")
+    public ResponseEntity<TableResponse> setActive(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID tableId,
+            @Valid @RequestBody SetTableActiveRequest request) {
+        RestaurantTable table = tableService.setActive(tableId, principal.restaurantId(), request.active(), principal.id());
+        return ResponseEntity.ok(TableResponse.from(table));
     }
 
     @PutMapping("/{tableId}")

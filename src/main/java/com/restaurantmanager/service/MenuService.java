@@ -1,11 +1,14 @@
 package com.restaurantmanager.service;
 
+import com.restaurantmanager.catalog.MenuTemplateCatalog;
 import com.restaurantmanager.dto.request.CreateMenuCategoryRequest;
 import com.restaurantmanager.dto.request.CreateMenuItemRequest;
 import com.restaurantmanager.dto.request.UpdateMenuCategoryRequest;
 import com.restaurantmanager.dto.request.UpdateMenuItemRequest;
 import com.restaurantmanager.dto.response.MenuCategoryResponse;
 import com.restaurantmanager.dto.response.MenuItemResponse;
+import com.restaurantmanager.dto.response.MenuTemplateCategoryResponse;
+import com.restaurantmanager.dto.response.MenuTemplateItemResponse;
 import com.restaurantmanager.entity.FoodType;
 import com.restaurantmanager.entity.MenuCategory;
 import com.restaurantmanager.entity.MenuItem;
@@ -30,6 +33,7 @@ public class MenuService {
 
     private final MenuCategoryRepository categoryRepository;
     private final MenuItemRepository itemRepository;
+    private final ActivityLogService activityLogService;
 
     // ---- Categories ----
 
@@ -167,5 +171,70 @@ public class MenuService {
         return categories.stream()
                 .map(category -> MenuCategoryResponse.from(category, itemsByCategory.getOrDefault(category.getId(), List.of())))
                 .collect(Collectors.toList());
+    }
+
+    // ---- Quick-start template ----
+
+    /** The built-in catalog, with non-veg/egg items dropped for veg-only restaurants. */
+    @Transactional(readOnly = true)
+    public List<MenuTemplateCategoryResponse> getMenuTemplate(Restaurant restaurant) {
+        return MenuTemplateCatalog.CATEGORIES.stream()
+                .map(category -> {
+                    List<MenuTemplateItemResponse> items = category.items().stream()
+                            .filter(item -> !restaurant.isVegOnly() || item.foodType() == FoodType.VEG)
+                            .map(MenuTemplateItemResponse::from)
+                            .collect(Collectors.toList());
+                    return new MenuTemplateCategoryResponse(category.key(), category.name(), items);
+                })
+                .filter(category -> !category.items().isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Adds the selected template items (and their parent categories, created on first use) to the
+     * restaurant's menu. Skips anything that already exists by name so re-applying is harmless.
+     */
+    @Transactional
+    public List<MenuCategoryResponse> applyTemplate(Restaurant restaurant, List<String> itemKeys, UUID actorId) {
+        Map<String, MenuCategory> resolvedCategories = new LinkedHashMap<>();
+        int itemsAdded = 0;
+
+        for (String itemKey : itemKeys) {
+            MenuTemplateCatalog.TemplateItem templateItem = MenuTemplateCatalog.findItem(itemKey).orElse(null);
+            if (templateItem == null || (restaurant.isVegOnly() && templateItem.foodType() != FoodType.VEG)) {
+                continue;
+            }
+            MenuTemplateCatalog.TemplateCategory templateCategory = MenuTemplateCatalog.findCategoryForItem(itemKey).orElseThrow();
+
+            MenuCategory category = resolvedCategories.computeIfAbsent(templateCategory.key(), key ->
+                    categoryRepository.findByRestaurantIdAndNameIgnoreCase(restaurant.getId(), templateCategory.name())
+                            .orElseGet(() -> categoryRepository.save(MenuCategory.builder()
+                                    .restaurant(restaurant)
+                                    .name(templateCategory.name())
+                                    .displayOrder(categoryRepository.countByRestaurantId(restaurant.getId()))
+                                    .active(true)
+                                    .build())));
+
+            if (itemRepository.existsByCategoryIdAndNameIgnoreCase(category.getId(), templateItem.name())) {
+                continue;
+            }
+            itemRepository.save(MenuItem.builder()
+                    .restaurant(restaurant)
+                    .category(category)
+                    .name(templateItem.name())
+                    .description(templateItem.description())
+                    .price(templateItem.price())
+                    .foodType(templateItem.foodType())
+                    .available(true)
+                    .displayOrder(0)
+                    .build());
+            itemsAdded++;
+        }
+
+        if (itemsAdded > 0) {
+            activityLogService.log(restaurant.getId(), actorId, "MENU_TEMPLATE_APPLIED",
+                    "Added " + itemsAdded + " item" + (itemsAdded == 1 ? "" : "s") + " from the menu template");
+        }
+        return getFullMenu(restaurant.getId());
     }
 }

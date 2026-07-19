@@ -31,7 +31,7 @@ public class TableService {
     private String orderBaseUrl;
 
     @Transactional
-    public RestaurantTable create(Restaurant restaurant, CreateTableRequest request) {
+    public RestaurantTable create(Restaurant restaurant, CreateTableRequest request, UUID actorId) {
         if (tableRepository.existsByRestaurantIdAndTableNumberIgnoreCase(restaurant.getId(), request.tableNumber())) {
             throw new ConflictException("Table '" + request.tableNumber() + "' already exists for this restaurant");
         }
@@ -41,7 +41,22 @@ public class TableService {
                 .qrToken(UUID.randomUUID().toString())
                 .active(true)
                 .build();
-        return tableRepository.save(table);
+        table = tableRepository.save(table);
+        activityLogService.log(restaurant.getId(), actorId, "TABLE_CREATED", "Created Table " + table.getTableNumber());
+        return table;
+    }
+
+    /** One-click block/unblock, separate from the full edit form — logs the change either way. */
+    @Transactional
+    public RestaurantTable setActive(UUID tableId, UUID restaurantId, boolean active, UUID actorId) {
+        RestaurantTable table = getForRestaurant(tableId, restaurantId);
+        if (table.isActive() == active) {
+            return table;
+        }
+        table.setActive(active);
+        activityLogService.log(restaurantId, actorId, active ? "TABLE_UNBLOCKED" : "TABLE_BLOCKED",
+                (active ? "Unblocked Table " : "Blocked Table ") + table.getTableNumber());
+        return table;
     }
 
     @Transactional(readOnly = true)

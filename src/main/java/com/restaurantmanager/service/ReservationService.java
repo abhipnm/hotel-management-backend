@@ -1,5 +1,6 @@
 package com.restaurantmanager.service;
 
+import com.restaurantmanager.dto.request.BookTableRequest;
 import com.restaurantmanager.dto.request.CreateReservationRequest;
 import com.restaurantmanager.entity.Reservation;
 import com.restaurantmanager.entity.ReservationStatus;
@@ -31,6 +32,7 @@ public class ReservationService {
 
     private final ReservationRepository reservationRepository;
     private final TableService tableService;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public Reservation create(Restaurant restaurant, CreateReservationRequest request) {
@@ -53,6 +55,33 @@ public class ReservationService {
                 .status(ReservationStatus.PENDING)
                 .build();
         return reservationRepository.save(reservation);
+    }
+
+    /** A walk-in booking made right now for a specific table — skips the future-time requirement of a regular reservation. */
+    @Transactional
+    public Reservation bookNow(UUID tableId, UUID restaurantId, BookTableRequest request, UUID actorId) {
+        RestaurantTable table = tableService.getForRestaurant(tableId, restaurantId);
+        if (!table.isActive()) {
+            throw new BadRequestException("Table " + table.getTableNumber() + " is blocked and cannot be booked");
+        }
+        Instant now = Instant.now();
+        requireNoConflict(table.getId(), now, null);
+
+        Reservation reservation = Reservation.builder()
+                .restaurant(table.getRestaurant())
+                .table(table)
+                .guestName(request.guestName())
+                .guestPhone(request.guestPhone())
+                .partySize(request.partySize())
+                .reservationTime(now)
+                .status(ReservationStatus.CONFIRMED)
+                .build();
+        reservation = reservationRepository.save(reservation);
+
+        activityLogService.log(restaurantId, actorId, "TABLE_BOOKED",
+                "Booked Table " + table.getTableNumber() + " for " + request.guestName()
+                        + " (party of " + request.partySize() + ")");
+        return reservation;
     }
 
     @Transactional(readOnly = true)
