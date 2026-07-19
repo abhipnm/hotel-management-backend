@@ -2,6 +2,7 @@ package com.restaurantmanager.service;
 
 import com.restaurantmanager.dto.request.OrderItemRequest;
 import com.restaurantmanager.dto.request.PlaceOrderRequest;
+import com.restaurantmanager.dto.request.UpdateOrderItemsRequest;
 import com.restaurantmanager.entity.Coupon;
 import com.restaurantmanager.entity.GuestSession;
 import com.restaurantmanager.entity.MenuItem;
@@ -21,12 +22,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
+    /** Once a kitchen has moved an order past PREPARING, its contents are considered locked. */
+    private static final Set<OrderStatus> EDITABLE_STATUSES =
+            EnumSet.of(OrderStatus.PLACED, OrderStatus.ACCEPTED, OrderStatus.PREPARING);
 
     private final OrderRepository orderRepository;
     private final MenuItemRepository menuItemRepository;
@@ -152,6 +159,70 @@ public class OrderService {
             activityLogService.log(restaurantId, actingUserId, "ORDER_CANCELLED",
                     "Cancelled order for Table " + order.getTable().getTableNumber() + " (" + order.getTotalAmount() + ")");
         }
+        broadcastService.broadcastStatusChanged(order);
+        return order;
+    }
+
+    /**
+     * Lets staff/admin correct an order's contents (e.g. the guest asks for one more naan, or to drop an item)
+     * without cancelling and re-placing it. Rebuilds the item list from scratch: gives back the stock the
+     * original items held, then re-decrements for the new list, so stock accounting stays correct either way.
+     */
+    @Transactional
+    public Order updateItems(UUID orderId, UUID restaurantId, UpdateOrderItemsRequest request, UUID actorId) {
+        Order order = getForRestaurant(orderId, restaurantId);
+
+        if (!EDITABLE_STATUSES.contains(order.getStatus())) {
+            throw new InvalidOrderStateException("Cannot modify an order that is " + order.getStatus());
+        }
+
+        restoreStock(order);
+        order.getItems().clear();
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (OrderItemRequest itemRequest : request.items()) {
+            MenuItem menuItem = menuItemRepository.findByIdAndRestaurantId(itemRequest.menuItemId(), restaurantId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Menu item not found: " + itemRequest.menuItemId()));
+
+            if (!menuItem.isAvailable()) {
+                throw new BadRequestException("'" + menuItem.getName() + "' is currently unavailable");
+            }
+
+            BigDecimal lineTotal = menuItem.getPrice().multiply(BigDecimal.valueOf(itemRequest.quantity()));
+            OrderItem orderItem = OrderItem.builder()
+                    .menuItem(menuItem)
+                    .itemNameSnapshot(menuItem.getName())
+                    .itemPriceSnapshot(menuItem.getPrice())
+                    .quantity(itemRequest.quantity())
+                    .subtotal(lineTotal)
+                    .notes(itemRequest.notes())
+                    .build();
+
+            order.addItem(orderItem);
+            subtotal = subtotal.add(lineTotal);
+            decrementStock(menuItem, itemRequest.quantity());
+        }
+
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (order.getCouponCode() != null) {
+            try {
+                Coupon coupon = couponService.findValid(restaurantId, order.getCouponCode(), subtotal);
+                discountAmount = couponService.calculateDiscount(coupon, subtotal);
+            } catch (BadRequestException e) {
+                // The coupon no longer applies to the new subtotal (e.g. now below its minimum) — drop the
+                // discount rather than block the edit; the order simply reverts to full price.
+                discountAmount = BigDecimal.ZERO;
+            }
+        }
+
+        order.setDiscountAmount(discountAmount);
+        order.setTotalAmount(subtotal.subtract(discountAmount));
+        if (request.notes() != null) {
+            order.setNotes(request.notes());
+        }
+
+        activityLogService.log(restaurantId, actorId, "ORDER_MODIFIED",
+                "Modified order for Table " + order.getTable().getTableNumber());
         broadcastService.broadcastStatusChanged(order);
         return order;
     }

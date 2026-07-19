@@ -1,5 +1,6 @@
 package com.restaurantmanager.controller;
 
+import com.restaurantmanager.dto.request.UpdateOrderItemsRequest;
 import com.restaurantmanager.dto.request.UpdateOrderStatusRequest;
 import com.restaurantmanager.dto.response.OrderResponse;
 import com.restaurantmanager.entity.Order;
@@ -69,6 +70,15 @@ public class StaffOrderController {
             @PathVariable UUID orderId,
             @Valid @RequestBody UpdateOrderStatusRequest request) {
         Order order = orderService.updateStatus(orderId, principal.restaurantId(), request.status(), principal.id());
+        return ResponseEntity.ok(OrderResponse.from(order));
+    }
+
+    @PatchMapping("/{orderId}/items")
+    public ResponseEntity<OrderResponse> updateItems(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID orderId,
+            @Valid @RequestBody UpdateOrderItemsRequest request) {
+        Order order = orderService.updateItems(orderId, principal.restaurantId(), request, principal.id());
         return ResponseEntity.ok(OrderResponse.from(order));
     }
 }
