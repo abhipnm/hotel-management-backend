@@ -1,0 +1,3 @@
+ALTER TABLE restaurants ADD COLUMN logo_url VARCHAR(500);
+ALTER TABLE restaurants ADD COLUMN theme_color VARCHAR(20) NOT NULL DEFAULT 'ORANGE';
+ALTER TABLE restaurants ADD COLUMN tagline VARCHAR(150);

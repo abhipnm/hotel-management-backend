@@ -1,6 +1,7 @@
 package com.restaurantmanager.dto.response;
 
 import com.restaurantmanager.entity.Restaurant;
+import com.restaurantmanager.entity.ThemeColor;
 
 import java.util.UUID;
 
@@ -11,7 +12,10 @@ public record RestaurantResponse(
         String address,
         String phone,
         boolean active,
-        boolean vegOnly
+        boolean vegOnly,
+        String logoUrl,
+        ThemeColor themeColor,
+        String tagline
 ) {
     public static RestaurantResponse from(Restaurant restaurant) {
         return new RestaurantResponse(
@@ -21,7 +25,10 @@ public record RestaurantResponse(
                 restaurant.getAddress(),
                 restaurant.getPhone(),
                 restaurant.isActive(),
-                restaurant.isVegOnly()
+                restaurant.isVegOnly(),
+                restaurant.getLogoUrl(),
+                restaurant.getThemeColor(),
+                restaurant.getTagline()
         );
     }
 }

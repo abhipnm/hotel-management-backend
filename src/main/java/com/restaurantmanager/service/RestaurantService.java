@@ -45,6 +45,9 @@ public class RestaurantService {
         restaurant.setAddress(request.address());
         restaurant.setPhone(request.phone());
         restaurant.setVegOnly(request.vegOnly());
+        restaurant.setLogoUrl(request.logoUrl());
+        restaurant.setThemeColor(request.themeColor());
+        restaurant.setTagline(request.tagline());
         return restaurant;
     }
 }

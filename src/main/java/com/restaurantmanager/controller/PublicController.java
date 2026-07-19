@@ -45,6 +45,9 @@ public class PublicController {
                 table.getRestaurant().getName(),
                 table.getRestaurant().getSlug(),
                 table.getRestaurant().isVegOnly(),
+                table.getRestaurant().getLogoUrl(),
+                table.getRestaurant().getThemeColor(),
+                table.getRestaurant().getTagline(),
                 table.getId(),
                 table.getTableNumber()
         ));
