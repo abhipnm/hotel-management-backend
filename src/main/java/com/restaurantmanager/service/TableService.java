@@ -81,6 +81,13 @@ public class TableService {
         return table;
     }
 
+    /** Clears this waiter off every table they're currently assigned to (e.g. when their account is deactivated). */
+    @Transactional
+    public void unassignFromAllTables(UUID waiterId) {
+        tableRepository.findByAssignedWaiterId(waiterId)
+                .forEach(table -> table.setAssignedWaiter(null));
+    }
+
     @Transactional
     public void delete(UUID tableId, UUID restaurantId) {
         RestaurantTable table = getForRestaurant(tableId, restaurantId);

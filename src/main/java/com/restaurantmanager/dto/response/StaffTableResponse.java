@@ -1,34 +1,28 @@
 package com.restaurantmanager.dto.response;
 
-import com.restaurantmanager.entity.GuestSession;
 import com.restaurantmanager.entity.RestaurantTable;
 
+import java.util.List;
 import java.util.UUID;
 
-/** A table as seen on the staff floor view: current occupancy plus who's sitting there, if anyone. */
+/** A table as seen on the staff floor view: current occupancy plus every guest currently seated there, if any. */
 public record StaffTableResponse(
         UUID id,
         String tableNumber,
         boolean active,
         boolean occupied,
-        UUID sessionId,
-        String guestName,
-        boolean billRequested,
-        /** Null when the seated guest didn't give a phone number, or the table is unoccupied. */
-        Integer visitCount,
+        /** Every active guest session at this table — a table can have more than one when guests order under separate names. */
+        List<StaffTableGuestResponse> guests,
         /** Null when no waiter is assigned to this table. */
         String assignedWaiterName
 ) {
-    public static StaffTableResponse from(RestaurantTable table, GuestSession activeSession, Integer visitCount) {
+    public static StaffTableResponse from(RestaurantTable table, List<StaffTableGuestResponse> guests) {
         return new StaffTableResponse(
                 table.getId(),
                 table.getTableNumber(),
                 table.isActive(),
-                activeSession != null,
-                activeSession != null ? activeSession.getId() : null,
-                activeSession != null ? activeSession.getGuestName() : null,
-                activeSession != null && activeSession.isBillRequested(),
-                visitCount,
+                !guests.isEmpty(),
+                guests,
                 table.getAssignedWaiter() != null ? table.getAssignedWaiter().getName() : null
         );
     }

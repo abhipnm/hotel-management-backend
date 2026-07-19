@@ -32,6 +32,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final ActivityLogService activityLogService;
+    private final TableService tableService;
 
     @Transactional
     public AuthResponse registerRestaurant(RegisterRestaurantRequest request) {
@@ -98,6 +99,8 @@ public class AuthService {
         user.setActive(request.active());
 
         if (wasActive && !request.active()) {
+            // A deactivated account can no longer log in to serve tables, so don't leave it looking "responsible" for any.
+            tableService.unassignFromAllTables(user.getId());
             activityLogService.log(restaurantId, actingUserId, "STAFF_DEACTIVATED", "Deactivated staff account " + user.getName());
         } else if (!wasActive && request.active()) {
             activityLogService.log(restaurantId, actingUserId, "STAFF_REACTIVATED", "Reactivated staff account " + user.getName());

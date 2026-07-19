@@ -1,5 +1,6 @@
 package com.restaurantmanager.controller;
 
+import com.restaurantmanager.dto.response.StaffTableGuestResponse;
 import com.restaurantmanager.dto.response.StaffTableResponse;
 import com.restaurantmanager.entity.GuestSession;
 import com.restaurantmanager.security.AuthPrincipal;
@@ -16,10 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** Read-only floor view for waitstaff: every table with its live occupancy, guest and bill-requested flag. */
+/** Read-only floor view for waitstaff: every table with its live occupancy, guests and bill-requested flag. */
 @Tag(name = "Staff", description = "Floor view of tables")
 @RestController
 @RequestMapping("/api/v1/staff/tables")
@@ -31,14 +31,21 @@ public class StaffTableController {
 
     @GetMapping
     public ResponseEntity<List<StaffTableResponse>> listTables(@AuthenticationPrincipal AuthPrincipal principal) {
-        Map<UUID, GuestSession> sessionsByTableId = guestSessionService.listActiveSessions(principal.restaurantId()).stream()
-                .collect(Collectors.toMap(s -> s.getTable().getId(), Function.identity(), (a, b) -> a));
+        // Grouped, not deduped — a table can have more than one active session when guests order under separate names.
+        Map<UUID, List<GuestSession>> sessionsByTableId = guestSessionService.listActiveSessions(principal.restaurantId()).stream()
+                .collect(Collectors.groupingBy(s -> s.getTable().getId()));
 
         List<StaffTableResponse> tables = tableService.listForRestaurant(principal.restaurantId()).stream()
                 .map(table -> {
-                    GuestSession activeSession = sessionsByTableId.get(table.getId());
-                    Integer visitCount = activeSession != null ? guestSessionService.getVisitCount(activeSession) : null;
-                    return StaffTableResponse.from(table, activeSession, visitCount);
+                    List<GuestSession> sessions = sessionsByTableId.getOrDefault(table.getId(), List.of());
+                    List<StaffTableGuestResponse> guests = sessions.stream()
+                            .map(session -> new StaffTableGuestResponse(
+                                    session.getId(),
+                                    session.getGuestName(),
+                                    session.isBillRequested(),
+                                    guestSessionService.getVisitCount(session)))
+                            .collect(Collectors.toList());
+                    return StaffTableResponse.from(table, guests);
                 })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(tables);
