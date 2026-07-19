@@ -61,6 +61,7 @@ public class OrderService {
             if (!menuItem.isAvailable()) {
                 throw new BadRequestException("'" + menuItem.getName() + "' is currently unavailable");
             }
+            assertStockAvailable(menuItem, itemRequest.quantity());
 
             BigDecimal lineTotal = menuItem.getPrice().multiply(BigDecimal.valueOf(itemRequest.quantity()));
             OrderItem orderItem = OrderItem.builder()
@@ -91,6 +92,15 @@ public class OrderService {
         broadcastService.broadcastCreated(saved);
         notificationService.notifyNewOrder(saved);
         return saved;
+    }
+
+    /** Untracked items (null stockQuantity) have unlimited availability and are never rejected here. */
+    private void assertStockAvailable(MenuItem menuItem, int quantityRequested) {
+        Integer available = menuItem.getStockQuantity();
+        if (available != null && quantityRequested > available) {
+            throw new BadRequestException(
+                    "Only " + available + " of '" + menuItem.getName() + "' left in stock");
+        }
     }
 
     /** Only tracks stock for items that have it set; untracked items (null stockQuantity) are unaffected. */
@@ -186,6 +196,7 @@ public class OrderService {
             if (!menuItem.isAvailable()) {
                 throw new BadRequestException("'" + menuItem.getName() + "' is currently unavailable");
             }
+            assertStockAvailable(menuItem, itemRequest.quantity());
 
             BigDecimal lineTotal = menuItem.getPrice().multiply(BigDecimal.valueOf(itemRequest.quantity()));
             OrderItem orderItem = OrderItem.builder()
