@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
@@ -18,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -62,7 +65,16 @@ public class GeminiVisionService {
             """;
 
     private final ObjectMapper objectMapper;
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient = RestClient.builder()
+            .requestFactory(clientHttpRequestFactory())
+            .build();
+
+    private static ClientHttpRequestFactory clientHttpRequestFactory() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(15));
+        factory.setReadTimeout(Duration.ofSeconds(45));
+        return factory;
+    }
 
     @Value("${app.ai.gemini.api-key:}")
     private String apiKey;
@@ -126,7 +138,9 @@ public class GeminiVisionService {
                     "Couldn't reach the AI menu-scanning service (status " + e.getStatusCode().value() + "). Please try again.");
         } catch (RestClientException e) {
             log.warn("Gemini API call failed", e);
-            throw new BadRequestException("Couldn't reach the AI menu-scanning service. Please try again.");
+            String cause = e.getCause() != null ? e.getCause().getClass().getSimpleName() + ": " + e.getCause().getMessage()
+                    : e.getClass().getSimpleName() + ": " + e.getMessage();
+            throw new BadRequestException("Couldn't reach the AI menu-scanning service. Please try again. (" + cause + ")");
         }
     }
 
