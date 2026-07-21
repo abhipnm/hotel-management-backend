@@ -3,6 +3,8 @@ package com.restaurantmanager.service;
 import com.restaurantmanager.catalog.MenuTemplateCatalog;
 import com.restaurantmanager.dto.request.CreateMenuCategoryRequest;
 import com.restaurantmanager.dto.request.CreateMenuItemRequest;
+import com.restaurantmanager.dto.request.ScannedMenuCategoryInput;
+import com.restaurantmanager.dto.request.ScannedMenuItemInput;
 import com.restaurantmanager.dto.request.UpdateMenuCategoryRequest;
 import com.restaurantmanager.dto.request.UpdateMenuItemRequest;
 import com.restaurantmanager.dto.response.MenuCategoryResponse;
@@ -234,6 +236,55 @@ public class MenuService {
         if (itemsAdded > 0) {
             activityLogService.log(restaurant.getId(), actorId, "MENU_TEMPLATE_APPLIED",
                     "Added " + itemsAdded + " item" + (itemsAdded == 1 ? "" : "s") + " from the menu template");
+        }
+        return getFullMenu(restaurant.getId());
+    }
+
+    // ---- AI menu scan ----
+
+    /**
+     * Adds the admin-reviewed items extracted from a scanned menu photo. Mirrors applyTemplate:
+     * finds-or-creates categories by name and skips items that already exist by name.
+     */
+    @Transactional
+    public List<MenuCategoryResponse> applyScannedMenu(Restaurant restaurant, List<ScannedMenuCategoryInput> categories, UUID actorId) {
+        Map<String, MenuCategory> resolvedCategories = new LinkedHashMap<>();
+        int itemsAdded = 0;
+
+        for (ScannedMenuCategoryInput categoryInput : categories) {
+            MenuCategory category = resolvedCategories.computeIfAbsent(categoryInput.name().toLowerCase(), key ->
+                    categoryRepository.findByRestaurantIdAndNameIgnoreCase(restaurant.getId(), categoryInput.name())
+                            .orElseGet(() -> categoryRepository.save(MenuCategory.builder()
+                                    .restaurant(restaurant)
+                                    .name(categoryInput.name())
+                                    .displayOrder(categoryRepository.countByRestaurantId(restaurant.getId()))
+                                    .active(true)
+                                    .build())));
+
+            for (ScannedMenuItemInput itemInput : categoryInput.items()) {
+                if (restaurant.isVegOnly() && itemInput.foodType() != FoodType.VEG) {
+                    continue;
+                }
+                if (itemRepository.existsByCategoryIdAndNameIgnoreCase(category.getId(), itemInput.name())) {
+                    continue;
+                }
+                itemRepository.save(MenuItem.builder()
+                        .restaurant(restaurant)
+                        .category(category)
+                        .name(itemInput.name())
+                        .description(itemInput.description())
+                        .price(itemInput.price())
+                        .foodType(itemInput.foodType())
+                        .available(true)
+                        .displayOrder(0)
+                        .build());
+                itemsAdded++;
+            }
+        }
+
+        if (itemsAdded > 0) {
+            activityLogService.log(restaurant.getId(), actorId, "MENU_SCAN_APPLIED",
+                    "Added " + itemsAdded + " item" + (itemsAdded == 1 ? "" : "s") + " from a scanned menu");
         }
         return getFullMenu(restaurant.getId());
     }

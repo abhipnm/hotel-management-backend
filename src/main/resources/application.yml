@@ -25,9 +25,9 @@ spring:
       fail-on-null-for-primitives: false
   servlet:
     multipart:
-      # Only used by the logo upload endpoint for now (enforced at 2MB in code, this is just headroom).
-      max-file-size: 3MB
-      max-request-size: 3MB
+      # Covers both the 2MB-capped logo upload and the larger scanned-menu photo upload.
+      max-file-size: 8MB
+      max-request-size: 8MB
 
 server:
   port: ${SERVER_PORT:8080}
@@ -53,6 +53,12 @@ app:
   frontend:
     # Base URL of the guest-facing ordering web app; QR codes deep-link here with ?qr=<token>
     order-base-url: ${ORDER_BASE_URL:https://order.example.com}
+  ai:
+    gemini:
+      # Free-tier key from https://aistudio.google.com/apikey — blank means the AI menu-scan
+      # feature is disabled and returns a clear "not configured" error instead of failing oddly.
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-2.0-flash}
 
 springdoc:
   swagger-ui:

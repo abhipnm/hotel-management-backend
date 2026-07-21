@@ -1,21 +1,25 @@
 package com.restaurantmanager.controller;
 
+import com.restaurantmanager.dto.request.ApplyScannedMenuRequest;
 import com.restaurantmanager.dto.request.CreateMenuCategoryRequest;
 import com.restaurantmanager.dto.request.CreateMenuItemRequest;
 import com.restaurantmanager.dto.request.UpdateMenuCategoryRequest;
 import com.restaurantmanager.dto.request.UpdateMenuItemRequest;
 import com.restaurantmanager.dto.response.MenuCategoryResponse;
 import com.restaurantmanager.dto.response.MenuItemResponse;
+import com.restaurantmanager.dto.response.ScannedMenuResponse;
 import com.restaurantmanager.entity.MenuCategory;
 import com.restaurantmanager.entity.MenuItem;
 import com.restaurantmanager.entity.Restaurant;
 import com.restaurantmanager.security.AuthPrincipal;
+import com.restaurantmanager.service.GeminiVisionService;
 import com.restaurantmanager.service.MenuService;
 import com.restaurantmanager.service.RestaurantService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,7 +29,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -39,10 +45,26 @@ public class AdminMenuController {
 
     private final MenuService menuService;
     private final RestaurantService restaurantService;
+    private final GeminiVisionService geminiVisionService;
 
     @GetMapping("/menu")
     public ResponseEntity<List<MenuCategoryResponse>> getFullMenu(@AuthenticationPrincipal AuthPrincipal principal) {
         return ResponseEntity.ok(menuService.getFullMenu(principal.restaurantId()));
+    }
+
+    // ---- AI menu scan ----
+
+    @PostMapping(value = "/menu/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ScannedMenuResponse> scanMenu(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(new ScannedMenuResponse(geminiVisionService.scanMenuImage(file)));
+    }
+
+    @PostMapping("/menu/scan/apply")
+    public ResponseEntity<List<MenuCategoryResponse>> applyScannedMenu(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody ApplyScannedMenuRequest request) {
+        Restaurant restaurant = restaurantService.getById(principal.restaurantId());
+        return ResponseEntity.ok(menuService.applyScannedMenu(restaurant, request.categories(), principal.id()));
     }
 
     // ---- Categories ----
