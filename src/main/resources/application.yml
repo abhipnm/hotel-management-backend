@@ -23,9 +23,17 @@ spring:
       # An omitted JSON primitive (e.g. an optional boolean flag) should default
       # to its Java default rather than 500 — matches typical REST leniency.
       fail-on-null-for-primitives: false
+  servlet:
+    multipart:
+      # Only used by the logo upload endpoint for now (enforced at 2MB in code, this is just headroom).
+      max-file-size: 3MB
+      max-request-size: 3MB
 
 server:
   port: ${SERVER_PORT:8080}
+  # Trust X-Forwarded-* headers from the platform's reverse proxy (e.g. Render) so
+  # self-referencing absolute URLs (the uploaded-logo endpoint) use the public https origin.
+  forward-headers-strategy: framework
 
 management:
   endpoints:

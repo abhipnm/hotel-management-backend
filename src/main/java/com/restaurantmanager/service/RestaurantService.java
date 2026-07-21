@@ -7,15 +7,22 @@ import com.restaurantmanager.exception.BadRequestException;
 import com.restaurantmanager.exception.ResourceNotFoundException;
 import com.restaurantmanager.repository.MenuItemRepository;
 import com.restaurantmanager.repository.RestaurantRepository;
+import com.restaurantmanager.util.ImageEnhancer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class RestaurantService {
+
+    private static final long MAX_LOGO_BYTES = 2L * 1024 * 1024;
+    private static final Set<String> ALLOWED_LOGO_CONTENT_TYPES = Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
 
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
@@ -48,6 +55,40 @@ public class RestaurantService {
         restaurant.setLogoUrl(request.logoUrl());
         restaurant.setThemeColor(request.themeColor());
         restaurant.setTagline(request.tagline());
+        return restaurant;
+    }
+
+    @Transactional
+    public Restaurant updateLogo(UUID restaurantId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("No file was uploaded");
+        }
+        if (file.getSize() > MAX_LOGO_BYTES) {
+            throw new BadRequestException("Logo image must be 2MB or smaller");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_LOGO_CONTENT_TYPES.contains(contentType)) {
+            throw new BadRequestException("Logo must be a PNG, JPEG, WEBP, or GIF image");
+        }
+        Restaurant restaurant = getById(restaurantId);
+        try {
+            // Small/blurry uploads are common for logos — normalize to a standard resolution and
+            // sharpen so they render crisply everywhere, rather than storing the raw upload as-is.
+            restaurant.setLogoImage(ImageEnhancer.enhance(file.getBytes()));
+        } catch (IOException e) {
+            throw new BadRequestException("Could not read the uploaded file");
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("That file doesn't look like a valid image");
+        }
+        restaurant.setLogoImageContentType("image/png");
+        return restaurant;
+    }
+
+    @Transactional
+    public Restaurant clearLogo(UUID restaurantId) {
+        Restaurant restaurant = getById(restaurantId);
+        restaurant.setLogoImage(null);
+        restaurant.setLogoImageContentType(null);
         return restaurant;
     }
 }

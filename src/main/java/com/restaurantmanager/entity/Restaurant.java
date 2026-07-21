@@ -44,9 +44,17 @@ public class Restaurant extends BaseEntity {
     @Builder.Default
     private boolean vegOnly = false;
 
-    /** Shown on the dashboard sidebar and the guest ordering page; null means no logo set. */
+    /** An externally-hosted logo URL, used only when no logo has been uploaded (see logoImage below). */
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
+
+    /** Bytes of an uploaded logo image; takes precedence over logoUrl when present. */
+    @Column(name = "logo_image", columnDefinition = "bytea")
+    private byte[] logoImage;
+
+    /** MIME type of logoImage (e.g. "image/png"); null when no image has been uploaded. */
+    @Column(name = "logo_image_content_type", length = 100)
+    private String logoImageContentType;
 
     /** Brand color preset applied across the dashboard and guest app. Vegetarian-only restaurants always show green regardless of this setting. */
     @Enumerated(EnumType.STRING)
