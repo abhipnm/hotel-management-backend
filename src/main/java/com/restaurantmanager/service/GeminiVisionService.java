@@ -7,9 +7,11 @@ import com.restaurantmanager.dto.request.ScannedMenuItemInput;
 import com.restaurantmanager.entity.FoodType;
 import com.restaurantmanager.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** Reads a photo/scan of a restaurant menu using a vision-capable AI model and extracts structured items. */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GeminiVisionService {
@@ -117,7 +120,12 @@ public class GeminiVisionService {
                     .body(body)
                     .retrieve()
                     .body(String.class);
+        } catch (HttpStatusCodeException e) {
+            log.warn("Gemini API call failed with status {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BadRequestException(
+                    "Couldn't reach the AI menu-scanning service (status " + e.getStatusCode().value() + "). Please try again.");
         } catch (RestClientException e) {
+            log.warn("Gemini API call failed", e);
             throw new BadRequestException("Couldn't reach the AI menu-scanning service. Please try again.");
         }
     }
