@@ -1,6 +1,7 @@
 package com.restaurantmanager.controller;
 
 import com.restaurantmanager.dto.request.BookTableRequest;
+import com.restaurantmanager.dto.request.BulkCreateTablesRequest;
 import com.restaurantmanager.dto.request.CreateTableRequest;
 import com.restaurantmanager.dto.request.SetTableActiveRequest;
 import com.restaurantmanager.dto.response.ReservationResponse;
@@ -76,6 +77,17 @@ public class StaffTableController {
         Restaurant restaurant = restaurantService.getById(principal.restaurantId());
         RestaurantTable table = tableService.create(restaurant, request, principal.id());
         return ResponseEntity.status(HttpStatus.CREATED).body(TableResponse.from(table));
+    }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<List<TableResponse>> createTablesBulk(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody BulkCreateTablesRequest request) {
+        Restaurant restaurant = restaurantService.getById(principal.restaurantId());
+        List<TableResponse> tables = tableService.createBulk(restaurant, request.tables(), principal.id()).stream()
+                .map(TableResponse::from)
+                .toList();
+        return ResponseEntity.status(HttpStatus.CREATED).body(tables);
     }
 
     @PatchMapping("/{tableId}/active")

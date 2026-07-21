@@ -9,6 +9,7 @@ import java.util.UUID;
 public record StaffTableResponse(
         UUID id,
         String tableNumber,
+        Integer capacity,
         boolean active,
         boolean occupied,
         /** Every active guest session at this table — a table can have more than one when guests order under separate names. */
@@ -20,6 +21,7 @@ public record StaffTableResponse(
         return new StaffTableResponse(
                 table.getId(),
                 table.getTableNumber(),
+                table.getCapacity(),
                 table.isActive(),
                 !guests.isEmpty(),
                 guests,

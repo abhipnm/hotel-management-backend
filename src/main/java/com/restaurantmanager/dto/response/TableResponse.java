@@ -7,6 +7,7 @@ import java.util.UUID;
 public record TableResponse(
         UUID id,
         String tableNumber,
+        Integer capacity,
         String qrToken,
         String qrCodeImageUrl,
         boolean active,
@@ -23,6 +24,7 @@ public record TableResponse(
         return new TableResponse(
                 table.getId(),
                 table.getTableNumber(),
+                table.getCapacity(),
                 table.getQrToken(),
                 "/api/v1/admin/tables/" + table.getId() + "/qrcode",
                 table.isActive(),

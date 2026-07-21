@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.TreeSet;
 import java.util.UUID;
 
 @Service
@@ -38,12 +39,42 @@ public class TableService {
         RestaurantTable table = RestaurantTable.builder()
                 .restaurant(restaurant)
                 .tableNumber(request.tableNumber())
+                .capacity(request.capacity())
                 .qrToken(UUID.randomUUID().toString())
                 .active(true)
                 .build();
         table = tableRepository.save(table);
         activityLogService.log(restaurant.getId(), actorId, "TABLE_CREATED", "Created Table " + table.getTableNumber());
         return table;
+    }
+
+    /** Creates many tables in one shot (e.g. setting up a new floor) — rejects the whole batch if any table number is a duplicate. */
+    @Transactional
+    public List<RestaurantTable> createBulk(Restaurant restaurant, List<CreateTableRequest> requests, UUID actorId) {
+        TreeSet<String> seen = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        for (CreateTableRequest request : requests) {
+            if (!seen.add(request.tableNumber())) {
+                throw new ConflictException("Duplicate table number in request: '" + request.tableNumber() + "'");
+            }
+        }
+        for (String tableNumber : seen) {
+            if (tableRepository.existsByRestaurantIdAndTableNumberIgnoreCase(restaurant.getId(), tableNumber)) {
+                throw new ConflictException("Table '" + tableNumber + "' already exists for this restaurant");
+            }
+        }
+        List<RestaurantTable> tables = requests.stream()
+                .map(request -> RestaurantTable.builder()
+                        .restaurant(restaurant)
+                        .tableNumber(request.tableNumber())
+                        .capacity(request.capacity())
+                        .qrToken(UUID.randomUUID().toString())
+                        .active(true)
+                        .build())
+                .toList();
+        tables = tableRepository.saveAll(tables);
+        activityLogService.log(restaurant.getId(), actorId, "TABLES_BULK_CREATED",
+                "Bulk-created " + tables.size() + " tables: " + String.join(", ", seen));
+        return tables;
     }
 
     /** One-click block/unblock, separate from the full edit form — logs the change either way. */
@@ -75,6 +106,7 @@ public class TableService {
         RestaurantTable table = getForRestaurant(tableId, restaurantId);
         table.setTableNumber(request.tableNumber());
         table.setActive(request.active());
+        table.setCapacity(request.capacity());
         return table;
     }
 
