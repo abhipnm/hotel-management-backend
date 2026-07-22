@@ -8,6 +8,7 @@ import com.restaurantmanager.exception.ResourceNotFoundException;
 import com.restaurantmanager.repository.MenuItemRepository;
 import com.restaurantmanager.repository.RestaurantRepository;
 import com.restaurantmanager.util.ImageEnhancer;
+import com.restaurantmanager.util.ImageSignature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,10 +72,19 @@ public class RestaurantService {
             throw new BadRequestException("Logo must be a PNG, JPEG, WEBP, or GIF image");
         }
         Restaurant restaurant = getById(restaurantId);
+        byte[] originalBytes;
+        try {
+            originalBytes = file.getBytes();
+        } catch (IOException e) {
+            throw new BadRequestException("Could not read the uploaded file");
+        }
+        if (!ImageSignature.matches(originalBytes, contentType)) {
+            throw new BadRequestException("That file doesn't look like a valid image");
+        }
         try {
             // Small/blurry uploads are common for logos — normalize to a standard resolution and
             // sharpen so they render crisply everywhere, rather than storing the raw upload as-is.
-            restaurant.setLogoImage(ImageEnhancer.enhance(file.getBytes()));
+            restaurant.setLogoImage(ImageEnhancer.enhance(originalBytes));
         } catch (IOException e) {
             throw new BadRequestException("Could not read the uploaded file");
         } catch (IllegalArgumentException e) {

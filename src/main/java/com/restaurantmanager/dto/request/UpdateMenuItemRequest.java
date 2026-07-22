@@ -1,6 +1,7 @@
 package com.restaurantmanager.dto.request;
 
 import com.restaurantmanager.entity.FoodType;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -24,6 +25,7 @@ public record UpdateMenuItemRequest(
 
         @NotNull
         @DecimalMin(value = "0.0", inclusive = true, message = "Price cannot be negative")
+        @DecimalMax(value = "99999999.99", inclusive = true, message = "Price is too large")
         BigDecimal price,
 
         String imageUrl,

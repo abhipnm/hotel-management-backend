@@ -104,6 +104,12 @@ logging:
   level:
     com.restaurantmanager: INFO
 
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+
 ---
 spring:
   config:

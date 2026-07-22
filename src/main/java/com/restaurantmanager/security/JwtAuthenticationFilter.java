@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -47,11 +48,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 AuthPrincipal principal = jwtService.parse(token);
 
                 // Guest tokens have no AppUser row to check. Staff/admin tokens are re-checked
-                // against the current `active` flag on every request — a signature+expiry check
-                // alone would let a deactivated account keep using an already-issued token for
+                // against the current `active` flag AND `role` on every request — a signature+expiry
+                // check alone would let a deactivated account, or one an admin just demoted/promoted,
+                // keep using an already-issued token (with its old role baked into the claims) for
                 // up to its full TTL (see AuthService#updateStaff).
-                if (principal.isGuest() || isActiveStaff(principal.id())) {
-                    List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + principal.role()));
+                String currentRole = principal.isGuest() ? principal.role() : resolveCurrentRole(principal.id());
+                if (principal.isGuest() || currentRole != null) {
+                    List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + currentRole));
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(principal, null, authorities);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -68,7 +71,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private boolean isActiveStaff(UUID userId) {
-        return appUserRepository.findById(userId).map(AppUser::isActive).orElse(false);
+    /** Null means the user is deactivated or was deleted; the token must be rejected either way. */
+    private String resolveCurrentRole(UUID userId) {
+        Optional<AppUser> user = appUserRepository.findById(userId).filter(AppUser::isActive);
+        return user.map(u -> u.getRole().name()).orElse(null);
     }
 }

@@ -147,12 +147,12 @@ public class MenuService {
 
     // ---- Composed views ----
 
-    /** Public-facing menu: active categories only, available items only. */
+    /** Public-facing menu: active categories only, available items only, stock levels masked. */
     @Transactional(readOnly = true)
     public List<MenuCategoryResponse> getPublicMenu(UUID restaurantId) {
         List<MenuCategory> categories = categoryRepository.findByRestaurantIdAndActiveTrueOrderByDisplayOrderAsc(restaurantId);
         List<MenuItem> items = itemRepository.findByRestaurantIdAndAvailableTrueOrderByDisplayOrderAsc(restaurantId);
-        return composeMenu(categories, items);
+        return composeMenu(categories, items, true);
     }
 
     /** Admin-facing menu: every category and item regardless of active/available flags. */
@@ -160,15 +160,15 @@ public class MenuService {
     public List<MenuCategoryResponse> getFullMenu(UUID restaurantId) {
         List<MenuCategory> categories = categoryRepository.findByRestaurantIdOrderByDisplayOrderAsc(restaurantId);
         List<MenuItem> items = itemRepository.findByRestaurantIdOrderByDisplayOrderAsc(restaurantId);
-        return composeMenu(categories, items);
+        return composeMenu(categories, items, false);
     }
 
-    private List<MenuCategoryResponse> composeMenu(List<MenuCategory> categories, List<MenuItem> items) {
+    private List<MenuCategoryResponse> composeMenu(List<MenuCategory> categories, List<MenuItem> items, boolean publicView) {
         Map<UUID, List<MenuItemResponse>> itemsByCategory = items.stream()
                 .collect(Collectors.groupingBy(
                         item -> item.getCategory().getId(),
                         LinkedHashMap::new,
-                        Collectors.mapping(MenuItemResponse::from, Collectors.toList())));
+                        Collectors.mapping(publicView ? MenuItemResponse::publicFrom : MenuItemResponse::from, Collectors.toList())));
 
         return categories.stream()
                 .map(category -> MenuCategoryResponse.from(category, itemsByCategory.getOrDefault(category.getId(), List.of())))

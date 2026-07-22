@@ -6,6 +6,7 @@ import com.restaurantmanager.dto.request.ScannedMenuCategoryInput;
 import com.restaurantmanager.dto.request.ScannedMenuItemInput;
 import com.restaurantmanager.entity.FoodType;
 import com.restaurantmanager.exception.BadRequestException;
+import com.restaurantmanager.util.ImageSignature;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -103,6 +104,9 @@ public class GeminiVisionService {
             imageBytes = file.getBytes();
         } catch (IOException e) {
             throw new BadRequestException("Could not read the uploaded file");
+        }
+        if (!ImageSignature.matches(imageBytes, contentType)) {
+            throw new BadRequestException("That file doesn't look like a valid PNG, JPEG, or WEBP image.");
         }
 
         String rawResponse = callGemini(imageBytes, contentType);

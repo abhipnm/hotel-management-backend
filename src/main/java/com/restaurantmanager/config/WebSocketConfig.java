@@ -14,16 +14,16 @@ import java.util.List;
 
 /**
  * Live order feed for kitchen/staff dashboards.
- * Clients connect to /ws?token=<staff JWT> and subscribe to
- * /topic/restaurants/{restaurantId}/orders to receive new-order and
- * status-change events as they happen.
+ * Clients connect to /ws (no token in the URL - the staff JWT is authenticated from the
+ * STOMP CONNECT frame's Authorization header, see StompAuthChannelInterceptor) and subscribe
+ * to /topic/restaurants/{restaurantId}/orders to receive new-order and status-change events.
  */
 @Configuration
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final JwtHandshakeInterceptor jwtHandshakeInterceptor;
+    private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
     private final TenantChannelInterceptor tenantChannelInterceptor;
 
     @Value("${app.cors.allowed-origins}")
@@ -33,7 +33,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(allowedOrigins.toArray(new String[0]))
-                .addInterceptors(jwtHandshakeInterceptor)
                 .withSockJS();
     }
 
@@ -45,6 +44,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
-        registration.interceptors(tenantChannelInterceptor);
+        // Order matters: auth must populate the session's restaurantId before the tenant
+        // check runs against it.
+        registration.interceptors(stompAuthChannelInterceptor, tenantChannelInterceptor);
     }
 }

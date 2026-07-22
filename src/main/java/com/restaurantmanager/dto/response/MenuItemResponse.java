@@ -34,4 +34,29 @@ public record MenuItemResponse(
                 item.getLowStockThreshold()
         );
     }
+
+    // Anyone can call the unauthenticated public menu endpoint, so a competitor could poll it to
+    // scrape exact inventory levels. The guest UI only ever needs the count to cap an order or show
+    // a "running low" nudge - both only matter once stock is actually low - so healthy stock counts
+    // (and the threshold that defines "low" for this item) are withheld from that view.
+    private static final int DEFAULT_LOW_STOCK_VISIBILITY = 20;
+
+    public static MenuItemResponse publicFrom(MenuItem item) {
+        Integer stock = item.getStockQuantity();
+        Integer threshold = item.getLowStockThreshold();
+        boolean lowStock = stock != null && stock <= (threshold != null ? threshold : DEFAULT_LOW_STOCK_VISIBILITY);
+        return new MenuItemResponse(
+                item.getId(),
+                item.getCategory().getId(),
+                item.getName(),
+                item.getDescription(),
+                item.getPrice(),
+                item.getImageUrl(),
+                item.getFoodType(),
+                item.isAvailable(),
+                item.getDisplayOrder(),
+                lowStock ? stock : null,
+                null
+        );
+    }
 }

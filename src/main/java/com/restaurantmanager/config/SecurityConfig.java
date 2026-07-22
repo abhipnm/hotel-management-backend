@@ -44,6 +44,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // This API serves JSON almost everywhere, but Swagger UI (dev/test only, see
+                // springdoc.*.enabled in application.yml) renders an HTML page with inline scripts/
+                // styles, hence 'unsafe-inline' - frame-ancestors/base-uri/form-action stay locked down.
+                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+                                + "img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
