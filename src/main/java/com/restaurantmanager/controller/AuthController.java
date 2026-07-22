@@ -3,8 +3,10 @@ package com.restaurantmanager.controller;
 import com.restaurantmanager.dto.request.LoginRequest;
 import com.restaurantmanager.dto.request.RegisterRestaurantRequest;
 import com.restaurantmanager.dto.response.AuthResponse;
+import com.restaurantmanager.security.LoginRateLimiterService;
 import com.restaurantmanager.service.AuthService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginRateLimiterService loginRateLimiterService;
 
     @PostMapping("/register-restaurant")
     public ResponseEntity<AuthResponse> registerRestaurant(@Valid @RequestBody RegisterRestaurantRequest request) {
@@ -28,7 +31,16 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        String clientIp = httpRequest.getRemoteAddr();
+        loginRateLimiterService.checkAllowed(clientIp);
+        try {
+            AuthResponse response = authService.login(request);
+            loginRateLimiterService.recordSuccess(clientIp);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            loginRateLimiterService.recordFailure(clientIp);
+            throw e;
+        }
     }
 }

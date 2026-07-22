@@ -1,6 +1,8 @@
 package com.restaurantmanager.util;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -10,6 +12,7 @@ import java.awt.image.Kernel;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Iterator;
 
 /**
  * Normalizes an uploaded logo to a decent standard resolution and sharpens it, so a small or
@@ -20,10 +23,17 @@ public final class ImageEnhancer {
     private static final int MIN_DIMENSION = 512;
     private static final int MAX_DIMENSION = 1024;
 
+    // A small file can still decode to a huge pixel buffer (e.g. a solid-color PNG compresses
+    // extremely well regardless of dimensions) - checking the header-only size before ImageIO.read()
+    // allocates the full raster keeps a tiny upload from exhausting server memory.
+    private static final long MAX_SOURCE_PIXELS = 10_000_000L;
+
     private ImageEnhancer() {
     }
 
     public static byte[] enhance(byte[] original) throws IOException {
+        checkDimensions(original);
+
         BufferedImage source = ImageIO.read(new ByteArrayInputStream(original));
         if (source == null) {
             throw new IllegalArgumentException("Unrecognized image format");
@@ -45,6 +55,29 @@ public final class ImageEnhancer {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(sharpened, "png", out);
         return out.toByteArray();
+    }
+
+    /** Reads only the image header (width/height) - never allocates a full-size raster. */
+    private static void checkDimensions(byte[] original) throws IOException {
+        try (ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(original))) {
+            if (iis == null) {
+                throw new IllegalArgumentException("Unrecognized image format");
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            if (!readers.hasNext()) {
+                throw new IllegalArgumentException("Unrecognized image format");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis, true, true);
+                long pixels = (long) reader.getWidth(0) * reader.getHeight(0);
+                if (pixels > MAX_SOURCE_PIXELS) {
+                    throw new IllegalArgumentException("That image's dimensions are too large to process");
+                }
+            } finally {
+                reader.dispose();
+            }
+        }
     }
 
     private static BufferedImage resize(BufferedImage source, int width, int height) {

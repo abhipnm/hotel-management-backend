@@ -122,12 +122,14 @@ public class GeminiVisionService {
                 "contents", List.of(Map.of("parts", List.of(textPart, imagePart))),
                 "generationConfig", Map.of("responseMimeType", "application/json"));
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model
-                + ":generateContent?key=" + apiKey;
+        // The key travels as a header, never in the URL — so it can never end up in a
+        // logged/echoed request-URI (e.g. inside a connection-failure exception message).
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
 
         try {
             return restClient.post()
                     .uri(url)
+                    .header("x-goog-api-key", apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
@@ -137,10 +139,10 @@ public class GeminiVisionService {
             throw new BadRequestException(
                     "Couldn't reach the AI menu-scanning service (status " + e.getStatusCode().value() + "). Please try again.");
         } catch (RestClientException e) {
+            // Log the full exception server-side only — never forward getMessage()/getCause()
+            // to the client, since exception messages can embed request details.
             log.warn("Gemini API call failed", e);
-            String cause = e.getCause() != null ? e.getCause().getClass().getSimpleName() + ": " + e.getCause().getMessage()
-                    : e.getClass().getSimpleName() + ": " + e.getMessage();
-            throw new BadRequestException("Couldn't reach the AI menu-scanning service. Please try again. (" + cause + ")");
+            throw new BadRequestException("Couldn't reach the AI menu-scanning service. Please try again.");
         }
     }
 
